@@ -5,6 +5,8 @@ In this folder there are the useful documents and links for better working with 
 - [Base Station Schematic](schematic_base_station.png)
 - [SDS011 Datasheet](SDS011_datasheet.pdf)
 - [SDS011 Protocol Specifications, Rev. 1.3](SDS011_Protocol_V1.3.pdf)
+- [BME280 Datasheet](bme280_datasheet.pdf)
+- [BME280 Design guide](bme280_design_guide.pdf)
 
 ### Links
 - [SDS11 - things to know](https://www.settorezero.com/wordpress/il-sensore-sds011-e-le-polveri-sottili/)
