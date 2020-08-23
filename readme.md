@@ -6,7 +6,7 @@ This project is based on the LiLyGO TTGO LoRa32 version 2.1_1.6 and is composed 
 - A remote station
 
 ### Base Station
-Think of this a station that is placed where WiFi and Telephone is not accessible.  
+Think of this as a station that is placed where WiFi and Telephone is not accessible.  
 Is the one where sensors are attached. Actually those sensors are used:  
 - DHT22 (humidity, temperature)
 - BME280 (pressure, temperature, humidity) OR BMP280 (pressure, temperature)
