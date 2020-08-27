@@ -1,6 +1,8 @@
 # WePaRT
 ## Weather and Particulate Recorder-Transmitter
 
+![WePaRT diagram](./media/wepart_diagram.png)
+
 This project is based on the LiLyGO TTGO LoRa32 version 2.1_1.6 and is composed of two parts:  
 - A base station
 - A remote station
@@ -21,3 +23,6 @@ Base station gets data from sensors and:
 Is the only one attached to a WiFi infrastructure. Receives data from the Base Station and:
 - transmits them to Thingspeak for graph generation
 - transmits them over MQTT
+- saves the good received data in a CSV, adding the current time/date taken from an NTP server
+- saves the bad received data in another CSV
+- shows a webpage by navigating to his IP address in the same wifi network were device is connected
