@@ -1,7 +1,7 @@
 # WePaRT
 ## Weather and Particulate Recorder-Transmitter
 
-![WePaRT diagram](./media/diagram.png)
+![WePaRT diagram](./media/wepart_diagram.png)
 
 This project is based on the LiLyGO TTGO LoRa32 version 2.1_1.6 and is composed of two parts:  
 - A base station
