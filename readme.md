@@ -1,5 +1,4 @@
 # WePaRT
-## Weather and Particulate Recorder-Transmitter
 
 ![WePaRT diagram](./media/wepart_diagram.png)
 
