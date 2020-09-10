@@ -25,3 +25,7 @@ Is the one attached to a WiFi infrastructure. Receives data from the Base Statio
 - saves the good received data in a CSV, adding the current time/date taken from an NTP server
 - saves the bad received data in a text file for further analisys of bad received packets
 - shows a webpage by navigating to his IP address in the same wifi network were device is connected
+
+### Links
+- You can read a full description of the WePaRT on the [settorezero blog](https://www.settorezero.com/wordpress/wepart-stazione-monitoraggio-meteo-polveri-sottili-particolato)
+- You can see actual data sent to Thingspeak by our WePaRT [here](https://thingspeak.com/channels/1107465)
