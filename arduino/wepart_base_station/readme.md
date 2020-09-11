@@ -1,6 +1,6 @@
 ## WePaRT Base Station source code
 
-This is the code you must upload on the module in the Base Station. The Base Station is the one where Sensors are attached, the Transmitter Station.  
+This is the code you must upload on the module in the Base Station. The Base Station is the one where Sensors are attached, aka the Transmitter Station.  
 
 Please remember those things first than upload the code:  
 - Remove the connection between SDS011 and board. The SDS011 implementation uses the hardware UART, the same used for code upload
