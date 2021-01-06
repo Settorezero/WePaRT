@@ -1,5 +1,6 @@
 ## WePaRT DOCS and LINKS
-In this folder there are the useful documents and links for better working with the WePaRT.  
+
+In this folder are located the useful documents and links for better working with the WePaRT.  
 
 ### Documents
 - [Base Station Schematic](schematic_base_station.png)

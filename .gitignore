@@ -1,0 +1,10 @@
+Thumbs.db
+secret-my.h
+pushover.cpp
+pushover.h
+
+#VSCode
+.vscode
+
+#Arduino-CLI
+build

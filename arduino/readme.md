@@ -15,3 +15,5 @@ You need to install the ESP32 support for Arduino IDE.
 - [Adafruit BME280](https://github.com/adafruit/Adafruit_BME280_Library)
 - [LoRa](https://github.com/sandeepmistry/arduino-LoRa) (by Sandeep Mistry)
 - [ESP8266 and ESP32 Oled Driver for SSD1306 Displays+](https://github.com/ThingPulse/esp8266-oled-ssd1306) (by ThingPulse)
+
+If you want to use Pushover for Push Notifications, you must install also [Pushover by Arduino Hannover](https://github.com/ArduinoHannover/Pushover). You can copy the two files Pushover.cpp and Pushover.h in the `wepart_remote_station/` folder

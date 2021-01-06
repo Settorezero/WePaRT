@@ -1,6 +1,7 @@
 /*
  * WePaRT - Weather and Particulate Recorder Transmitter
  * REMOTE STATION
+ * Version 1.1
  * board used: LILYGO® TTGO LoRa32 V2.1_1.6
  * 
  * Code and design by Bernardo Giovanni aka CyB3rn0id (https://www.settorezero.com)
@@ -25,6 +26,10 @@
  * PubSub client - https://github.com/knolleary/pubsubclient
  * TimeLib - https://github.com/PaulStoffregen/Time
  * Thingspeak - https://github.com/mathworks/thingspeak-arduino
+ * 
+ * If you want to use Pushover for Push Notifications, you must install also
+ * Pushover by Arduino Hannover - https://github.com/ArduinoHannover/Pushover
+ * (you can copy the two files Pushover.cpp and Pushover.h in this folder)
  *
  * LICENSE
  * Attribution-NonCommercial-ShareAlike 4.0 International 
@@ -83,6 +88,11 @@
 #include "webpage.h"
 #include "secret.h"
 
+// If you want to use Pushover for Push Notifications, you must install also
+// Pushover by Arduino Hannover - https://github.com/ArduinoHannover/Pushover
+// (you can copy the two files Pushover.cpp and Pushover.h in this folder)
+#include "pushover.h"
+
 // START OF CUSTOMIZE SECTION --------------------------------------------------------------------------------------------------------------------
 
 // **************************************
@@ -91,6 +101,8 @@
 #define RETRIES_WIFI 100  // number of WiFi re-connection retries after a no-connection, at 500mS reconnection rate
 #define USE_STATIC_IP // comment for using DHCP OR if you have errors on NTP server connection
 // if you want to use static IP, change also following parameters:
+// WARNING:
+// the better thing is to assign static IP directly from the router
 #ifdef USE_STATIC_IP
     IPAddress deviceIP(192, 168, 1, 162); // static address will be assigned to the device
     IPAddress gateway(192, 168, 1, 1); // router address
@@ -106,10 +118,16 @@
 #define USE_THINGSPEAK // comment if you don't want to use thingspeak
 
 // **************************************
+// PUSHOVER settings
+// **************************************
+#define USE_PUSHOVER // comment if you don't want to use pushover
+
+// **************************************
 // MQTT settings
 // **************************************
 #define USE_MQTT // comment if you don't use an MQTT server
-#define RETRIES_MQTT 10  // number of MQTT re-connection retries after a no-connection
+#define MQTT_RETRIES 5  // number of MQTT re-connection retries after a no-connection
+#define MQTT_SOCKET_TIMEOUT 2 // seconds for MQTT server response timeout
 #define MQTT_USE_PASSWORD // Comment this if your MQTT server does not require user/password
 IPAddress mqtt_server(192,168,1,101); // this is the address of your MQTT server
 const uint16_t mqtt_port=1883; // this is the port where your MQTT server is listening. 1883 is the standard value
@@ -142,6 +160,10 @@ const char* NTPServer="it.pool.ntp.org"; //"ntp1.inrim.it";  // NTP server, use 
 // I used the calculator at https://www.mide.com/air-pressure-at-altitude-calculator
 // not used in the code, here for future implementations
 float nPressure=983.4253; // hPa = mBar
+
+// pm10, pm2.5 limits for pushover notifications
+float pm10limit=40;
+float pm25limit=20;
 
 // END OF CUSTOMIZE SECTION ----------------------------------------------------------------------------------------------------------------------
 // do not change nothing below
@@ -186,10 +208,14 @@ SPIClass loraSPI(VSPI); // we'll use the LoRa module on the VSPI (SPI3) module
 WiFiClient MQTT_WiFi_Client;
 WiFiUDP udp; // UDP client for NTP server
 WiFiClient TS_client;
-PubSubClient MQTTClient(mqtt_server, mqtt_port, MQTT_WiFi_Client);
 EasyNTPClient ntpClient(udp, NTPServer, (TIME_OFFSET*60*60));
 WebServer server(80);
-
+#ifdef USE_MQTT
+PubSubClient MQTTClient(mqtt_server, mqtt_port, MQTT_WiFi_Client);
+#endif
+#ifdef USE_PUSHOVER
+Pushover wepart_pushover=Pushover(pushover_token,pushover_user);
+#endif
 /******************************************************************************************************************
 * SETUP
 ******************************************************************************************************************/
@@ -385,11 +411,11 @@ void setup()
     #endif    
     
     #ifdef USE_MQTT
-    if (mqtt_connect())
+    if (mqtt_connect(MQTT_RETRIES))
         {
         // connected to MQTT
         display.setColor(BLACK);
-        display.fillRect(0, 51, 128, 11); // clear previous line (x,y,width,height)
+        display.fillRect(0, 51, 128, 12); // clear previous line (x,y,width,height)
         display.setColor(WHITE);
         display.drawString(0,50,"MQTT connected");
         }
@@ -477,14 +503,17 @@ void loop()
     wifi_connect();
     }
   #ifdef USE_MQTT
-  else
-    {
-     if (!MQTTClient.connected()) 
+  else if (!MQTTClient.loop()) // needed for mantaining MQTT connection, returns connection status
       {
-      mqtt_connect();
+      #ifdef DEBUG
+        Serial.println("MQTT disconnected");  
+      #endif
+      #ifdef MQTT_USE_PASSWORD
+          MQTTClient.connect(mqtt_clientID,mqtt_user,mqtt_password);
+      #else
+          MQTTClient.connect(mqtt_clientID);
+      #endif
       }
-    }
-  MQTTClient.loop(); // needed by pubsubclient
   #endif
 
   // doing the Webserver required stuff
@@ -526,7 +555,7 @@ void loop()
   display.drawString(0, 40,"PM 10: "+pm10+"ppm"); // PM10 value (whole, contains also the PM2.5)
   display.drawString(0, 50,"PM2.5: "+pm25+"ppm"); // PM2.5 value
   display.display();
-  
+
   int packetSize=LoRa.parsePacket();
   if (packetSize) getLoRaPacket(packetSize);
   }
@@ -563,8 +592,7 @@ void getLoRaPacket(int packetSize)
   if ((packet.startsWith("@") && packet.endsWith("#")))
     {
     // Received packet is composed as:
-	// https://docs.google.com/spreadsheets/d/1uwv2ZbNlVsGTnG6Q6OH3sNCoVa-4uajZjfyRlMmH_ik/edit?usp=sharing
-	
+    // https://docs.google.com/spreadsheets/d/1uwv2ZbNlVsGTnG6Q6OH3sNCoVa-4uajZjfyRlMmH_ik/edit?usp=sharing
    
     // I must remove the @ and the #
     String upacket=packet.substring(1,packet.length()-1);
@@ -692,7 +720,12 @@ void getLoRaPacket(int packetSize)
     #ifdef USE_MQTT
         sendDataOverMQTT(npacket, mytimestamp);
     #endif
-    
+
+    // send a notification over pushover if pm values are high
+    #ifdef USE_PUSHOVER
+      sendDataToPushover(mytimestamp);
+    #endif
+  
     // send single data fields to thingspeak
     #ifdef USE_THINGSPEAK
         sendDataToThingSpeak(String("data valid on ")+mytimestamp,true);
@@ -731,6 +764,55 @@ void getLoRaPacket(int packetSize)
   LedOff();
   } // \getLoRaPacket
   
+/******************************************************************************************************************
+* Send data to pushover
+******************************************************************************************************************/
+void sendDataToPushover(String timestamp)
+  {  
+  static bool retry=false;
+  static float prepm10=0;
+  static float prepm25=0;
+  static float pm10now=pm10.toFloat();
+  static float pm25now=pm25.toFloat();
+  static String pushovermessage="";
+  bool sendpushover=false;
+
+  // if previous try to send to pushover was ok
+  // I can recalculate stuff
+  if (!retry)
+    {
+    pushovermessage="";
+    if ((pm10now>pm10limit) && (pm10now>prepm10))
+        {
+        pushovermessage="PM10 value is "+pm10+"\n";
+        sendpushover=true;
+        }
+    if ((pm25now>pm25limit) && (pm25now>prepm25))
+        {
+        pushovermessage+="PM2.5 value is "+pm25+"\n";
+        sendpushover=true;
+        }
+    pushovermessage+="At:\n"+timestamp;
+    prepm10=pm10now;
+    prepm25=pm25now;
+    }
+  else
+    {
+    // previous try was bad, retry
+    sendpushover=true;  
+    }
+    
+  if (sendpushover)
+        {
+        wepart_pushover.setTitle("Message from WePaRT");
+        wepart_pushover.setMessage(pushovermessage.c_str());
+        wepart_pushover.setSound(pushover_sound);
+        wepart_pushover.setPriority(pushover_priority);
+        wepart_pushover.setDevice(pushover_device); 
+        retry=!wepart_pushover.send();        
+        }
+  }
+
 /******************************************************************************************************************
 * Save data to SD
 ******************************************************************************************************************/
@@ -913,11 +995,12 @@ void LedOff()
 /******************************************************************************************************************
 * Connect to MQTT Broker
 ******************************************************************************************************************/
-bool mqtt_connect(void) 
+bool mqtt_connect(uint8_t retries) 
   {
-  while (!MQTTClient.connected()) 
+  uint8_t retr=0; //re-connection retries counter
+  MQTTClient.setSocketTimeout(MQTT_SOCKET_TIMEOUT);
+  while (retr<retries) 
     {
-    static uint16_t retr=0; //re-connection retries counter
     #ifdef DEBUG
         Serial.println("Trying to connect to MQTT Broker");  
     #endif
@@ -937,24 +1020,20 @@ bool mqtt_connect(void)
     else 
         {
         #ifdef DEBUG
-            Serial.print("MQTT failed, rc=");
-            Serial.println(MQTTClient.state());
+          Serial.print("MQTT failed, rc=");
+          Serial.println(MQTTClient.state());
         #endif
-        // Wait 2 seconds before retrying
-        delay(2000);
         retr++;
-        if (retr==RETRIES_MQTT)
-            {
-            #ifdef DEBUG
-                Serial.println("Too many retries");
-                Serial.println("Please check MQTT settings");
-            #endif
-            return (false);
-            break;
-            }
+        delay(10);
         }
       }
-  }
+    #ifdef DEBUG
+      Serial.println("Too many MQTT retries");
+      Serial.println("Please check MQTT settings");
+    #endif
+    MQTTClient.disconnect();
+    return (false);
+    }
 
 /******************************************************************************************************************
 * Connect to WiFi
@@ -1039,7 +1118,7 @@ bool updateTime(bool forced)
         Serial.print("t value=");
         Serial.println(t);
       #endif
-      if (checkDST) 
+      if (checkDST()) 
         {
         #ifdef DEBUG
             Serial.println("We're in DST. I add an hour");
@@ -1233,7 +1312,6 @@ void setDataFileName(void)
 ******************************************************************************************************************/
 void server_connect(void)
   {
-
   String p3= "<body>";
   p3 += "<div style=\"text-align:center\">\n\r";
   p3 +="<div class=\"ti\">WePaRT by Giovanni Bernardo</div>";
@@ -1467,7 +1545,6 @@ void server_download()
     server_notfound();  
     }
   }
-  
   
 /******************************************************************************************************************
 * SD File functions EXAMPLES
